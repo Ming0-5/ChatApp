@@ -1,18 +1,15 @@
 package com.example.chatapp.activities;
-
+import android.text.Editable;
+import android.text.TextWatcher;
+import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.os.Bundle;
 import android.util.Base64;
 import android.view.View;
+import androidx.appcompat.app.AlertDialog;
+import java.util.Arrays;
 
-import androidx.activity.EdgeToEdge;
-import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.graphics.Insets;
-import androidx.core.view.ViewCompat;
-import androidx.core.view.WindowInsetsCompat;
-
-import com.example.chatapp.R;
 import com.example.chatapp.adapters.ChatAdapter;
 import com.example.chatapp.databinding.ActivityChatBinding;
 import com.example.chatapp.models.ChatMessage;
@@ -26,8 +23,6 @@ import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.EventListener;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.QuerySnapshot;
-import com.google.firebase.firestore.pipeline.Expression;
-
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -37,8 +32,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 
-public class ChatActivity extends BaseActivity {
-
+public class ChatActivity extends BaseActivity
+        implements ChatAdapter.OnMessageSelectedListener {
+    private ArrayList<String> selectedMessages = new ArrayList<>();
     private ActivityChatBinding binding;
     private User receiverUser;
     private List<ChatMessage> chatMessages;
@@ -47,7 +43,27 @@ public class ChatActivity extends BaseActivity {
     private FirebaseFirestore database;
     private String conversionId = null;
     private Boolean isReceiverAvailable = false;
+    private final List<String> sensitiveWords = Arrays.asList(
+            "sex",
+            "nude",
+            "kiss",
+            "hotel",
+            "private",
+            "touch",
+            "photo",
+            "alone",
+            "baby",
+            "love"
+    );
 
+    private final List<String> groomingPhrases = Arrays.asList(
+            "send pic",
+            "send me pic",
+            "don't tell anyone",
+            "keep secret",
+            "meet alone",
+            "come alone"
+    );
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -66,7 +82,8 @@ public class ChatActivity extends BaseActivity {
         chatAdapter = new ChatAdapter(
                 chatMessages,
                 getBitmapFromEncodedString(receiverUser.image),
-                preferenceManager.getString(Constants.KEY_USER_ID)
+                preferenceManager.getString(Constants.KEY_USER_ID),
+                this
         );
         binding.chatRecyclerView.setAdapter(chatAdapter);
         database = FirebaseFirestore.getInstance();
@@ -78,26 +95,127 @@ public class ChatActivity extends BaseActivity {
     }
 
     private void sendMessage(){
-        HashMap<String, Object> message = new HashMap<>();
-        message.put(Constants.KEY_SENDER_ID, preferenceManager.getString(Constants.KEY_USER_ID));
-        message.put(Constants.KEY_RECEIVER_ID, receiverUser.id);
-        message.put(Constants.KEY_MESSAGE, binding.inputMessage.getText().toString());
-        message.put(Constants.KEY_TIMESTAMP, new Date());
-        database.collection(Constants.KEY_COLLECTION_CHAT).add(message);
-        if(conversionId != null){
-            updateConversion(binding.inputMessage.getText().toString());
+
+        String messageText =
+                binding.inputMessage.getText().toString().trim();
+
+        if(messageText.isEmpty()){
+            return;
+        }
+
+        String lowerMessage = messageText.toLowerCase();
+
+        boolean detected = false;
+
+        for(String word : sensitiveWords){
+            if(lowerMessage.contains(word)){
+                detected = true;
+                break;
+            }
+        }
+
+        for(String phrase : groomingPhrases){
+            if(lowerMessage.contains(phrase)){
+                detected = true;
+                break;
+            }
+        }
+
+        if(detected){
+
+            new AlertDialog.Builder(this)
+                    .setTitle("Warning")
+                    .setMessage(
+                            "This message may contain grooming or sensitive content.\n\nDo you still want to send it?"
+                    )
+                    .setPositiveButton("Send Anyway", (dialog, which) -> {
+                        actuallySendMessage(messageText);
+                    })
+                    .setNegativeButton("Cancel", null)
+                    .show();
+
         }else{
+            actuallySendMessage(messageText);
+        }
+    }
+    private void actuallySendMessage(String messageText){
+
+        HashMap<String, Object> message = new HashMap<>();
+
+        message.put(
+                Constants.KEY_SENDER_ID,
+                preferenceManager.getString(Constants.KEY_USER_ID)
+        );
+
+        message.put(
+                Constants.KEY_RECEIVER_ID,
+                receiverUser.id
+        );
+
+        message.put(
+                Constants.KEY_MESSAGE,
+                messageText
+        );
+
+        message.put(
+                Constants.KEY_TIMESTAMP,
+                new Date()
+        );
+
+        database.collection(Constants.KEY_COLLECTION_CHAT)
+                .add(message);
+
+        if(conversionId != null){
+
+            updateConversion(messageText);
+
+        }else{
+
             HashMap<String, Object> conversion = new HashMap<>();
-            conversion.put(Constants.KEY_SENDER_ID, preferenceManager.getString(Constants.KEY_USER_ID));
-            conversion.put(Constants.KEY_SENDER_NAME, preferenceManager.getString(Constants.KEY_NAME));
-            conversion.put(Constants.KEY_SENDER_IMAGE, preferenceManager.getString(Constants.KEY_IMAGE));
-            conversion.put(Constants.KEY_RECEIVER_ID, receiverUser.id);
-            conversion.put(Constants.KEY_RECEIVER_NAME, receiverUser.name);
-            conversion.put(Constants.KEY_RECEIVER_IMAGE, receiverUser.image);
-            conversion.put(Constants.KEY_LAST_MESSAGE, binding.inputMessage.getText().toString());
-            conversion.put(Constants.KEY_TIMESTAMP, new Date());
+
+            conversion.put(
+                    Constants.KEY_SENDER_ID,
+                    preferenceManager.getString(Constants.KEY_USER_ID)
+            );
+
+            conversion.put(
+                    Constants.KEY_SENDER_NAME,
+                    preferenceManager.getString(Constants.KEY_NAME)
+            );
+
+            conversion.put(
+                    Constants.KEY_SENDER_IMAGE,
+                    preferenceManager.getString(Constants.KEY_IMAGE)
+            );
+
+            conversion.put(
+                    Constants.KEY_RECEIVER_ID,
+                    receiverUser.id
+            );
+
+            conversion.put(
+                    Constants.KEY_RECEIVER_NAME,
+                    receiverUser.name
+            );
+
+            conversion.put(
+                    Constants.KEY_RECEIVER_IMAGE,
+                    receiverUser.image
+            );
+
+            conversion.put(
+                    Constants.KEY_LAST_MESSAGE,
+                    messageText
+            );
+
+            conversion.put(
+                    Constants.KEY_TIMESTAMP,
+                    new Date()
+            );
+
             addConversion(conversion);
         }
+
         binding.inputMessage.setText(null);
     }
     private void listenAvailabilityOfReceiver(){
@@ -147,6 +265,21 @@ public class ChatActivity extends BaseActivity {
                     chatMessage.senderId = documentChange.getDocument().getString(Constants.KEY_SENDER_ID);
                     chatMessage.receiverId = documentChange.getDocument().getString(Constants.KEY_RECEIVER_ID);
                     chatMessage.message = documentChange.getDocument().getString(Constants.KEY_MESSAGE);
+                    if (chatMessage.message != null) {
+                        String lowerMessage = chatMessage.message.toLowerCase();
+                        for (String word : sensitiveWords) {
+                            if (lowerMessage.contains(word)) {
+                                chatMessage.isSuspicious = true;
+                                break;
+                            }
+                        }
+                        for (String phrase : groomingPhrases) {
+                            if (lowerMessage.contains(phrase)) {
+                                chatMessage.isSuspicious = true;
+                                break;
+                            }
+                        }
+                    }
                     chatMessage.dateTime = getReadableDateTime(documentChange.getDocument().getDate(Constants.KEY_TIMESTAMP));
                     chatMessage.dateObject = documentChange.getDocument().getDate(Constants.KEY_TIMESTAMP);
                     chatMessages.add(chatMessage);
@@ -176,7 +309,66 @@ public class ChatActivity extends BaseActivity {
     private void setListeners(){
 
         binding.imageBack.setOnClickListener(v -> onBackPressed());
-        binding.layoutSend.setOnClickListener(v -> sendMessage());
+        binding.layoutSend.setOnClickListener(v -> sendMessage());binding.inputMessage.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+
+            }
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+
+                String text = s.toString().toLowerCase();
+
+                boolean detected = false;
+
+                for(String word : sensitiveWords){
+
+                    if(text.contains(word)){
+                        detected = true;
+                        break;
+                    }
+                }
+
+                for(String phrase : groomingPhrases){
+
+                    if(text.contains(phrase)){
+                        detected = true;
+                        break;
+                    }
+                }
+
+                if(detected){
+
+                    binding.textTypingWarning.setVisibility(View.VISIBLE);
+
+                }else{
+
+                    binding.textTypingWarning.setVisibility(View.GONE);
+                }
+            }
+
+            @Override
+            public void afterTextChanged(Editable s) {
+
+            }
+        });
+        binding.buttonAnalyze.setOnClickListener(v -> {
+
+            if(selectedMessages.isEmpty()){
+                showToast("Please long press a message first");
+                return;
+            }
+
+            Intent intent = new Intent(getApplicationContext(), AnalyzeActivity.class);
+
+            intent.putStringArrayListExtra(
+                    "messages",
+                    selectedMessages
+            );
+
+            startActivity(intent);
+        });
     }
 
     private String getReadableDateTime(Date date){
@@ -230,5 +422,22 @@ public class ChatActivity extends BaseActivity {
     protected void onResume() {
         super.onResume();
         listenAvailabilityOfReceiver();
+    }
+    @Override
+    public void onMessagesSelected(List<String> messages) {
+
+        selectedMessages.clear();
+
+        selectedMessages.addAll(messages);
+
+        showToast(selectedMessages.size() + " messages selected");
+    }
+
+    private void showToast(String message){
+        android.widget.Toast.makeText(
+                this,
+                message,
+                android.widget.Toast.LENGTH_SHORT
+        ).show();
     }
 }

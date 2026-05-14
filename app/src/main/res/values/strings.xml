@@ -13,4 +13,11 @@
     <string name="select_user">Select User</string>
     <string name="type_a_message">Type a message</string>
     <string name="online">Online</string>
+    <string name="backend_connection_failed">Backend Connection Failed</string>
+    <string name="data_parsing_error">Data Parsing Error: %1$s</string>
+    <string name="sentiment_display">Sentiment: %1$s (%2$.2f)</string>
+    <string name="risk_score_display">Risk Score: %1$d%%</string>
+    <string name="assessment_display">Assessment: %1$s</string>
+    <string name="ai_context_analysis">AI Context Analysis:\n%1$s</string>
+    <string name="sensitive_analysis_format">Sensitive Words:\n%1$s\n\nDetected Grooming Phrases:\n%2$s</string>
 </resources>

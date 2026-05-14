@@ -2,7 +2,6 @@ package com.example.chatapp.adapters;
 
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
-import android.icu.text.Transliterator;
 import android.util.Base64;
 import android.view.LayoutInflater;
 import android.view.ViewGroup;

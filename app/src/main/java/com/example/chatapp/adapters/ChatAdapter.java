@@ -1,7 +1,9 @@
 package com.example.chatapp.adapters;
 
 import android.graphics.Bitmap;
+import android.graphics.Color;
 import android.view.LayoutInflater;
+import android.view.View;
 import android.view.ViewGroup;
 
 import androidx.annotation.NonNull;
@@ -11,27 +13,44 @@ import com.example.chatapp.databinding.ItemContainerReceivedMessageBinding;
 import com.example.chatapp.databinding.ItemContainerSentMessageBinding;
 import com.example.chatapp.models.ChatMessage;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder>{
-    private final List<ChatMessage> chatMessages;
 
+    private final List<ChatMessage> chatMessages;
     private final Bitmap receiverProfileImage;
     private final String senderId;
+    private final OnMessageSelectedListener listener;
 
     public static final int VIEW_TYPE_SENT = 1;
     public static final int VIEW_TYPE_RECEIVE = 2;
 
-    public ChatAdapter(List<ChatMessage> chatMessages, Bitmap receiverProfileImage, String senderId) {
+    public interface OnMessageSelectedListener{
+        void onMessagesSelected(List<String> messages);
+    }
+
+    public ChatAdapter(
+            List<ChatMessage> chatMessages,
+            Bitmap receiverProfileImage,
+            String senderId,
+            OnMessageSelectedListener listener
+    ) {
         this.chatMessages = chatMessages;
         this.receiverProfileImage = receiverProfileImage;
         this.senderId = senderId;
+        this.listener = listener;
     }
 
     @NonNull
     @Override
-    public RecyclerView.ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+    public RecyclerView.ViewHolder onCreateViewHolder(
+            @NonNull ViewGroup parent,
+            int viewType
+    ) {
+
         if(viewType == VIEW_TYPE_SENT){
+
             return new SentMessageViewHolder(
                     ItemContainerSentMessageBinding.inflate(
                             LayoutInflater.from(parent.getContext()),
@@ -39,7 +58,9 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder>{
                             false
                     )
             );
+
         }else{
+
             return new ReceivedMessageViewHolder(
                     ItemContainerReceivedMessageBinding.inflate(
                             LayoutInflater.from(parent.getContext()),
@@ -51,12 +72,48 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder>{
     }
 
     @Override
-    public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position) {
+    public void onBindViewHolder(
+            @NonNull RecyclerView.ViewHolder holder,
+            int position
+    ) {
+
+        ChatMessage message = chatMessages.get(position);
+
         if(getItemViewType(position) == VIEW_TYPE_SENT){
-            ((SentMessageViewHolder) holder).setData(chatMessages.get(position));
+
+            ((SentMessageViewHolder) holder).setData(message);
+
         }else{
-            ((ReceivedMessageViewHolder) holder).setData(chatMessages.get(position), receiverProfileImage);
+
+            ((ReceivedMessageViewHolder) holder)
+                    .setData(message, receiverProfileImage);
         }
+
+        holder.itemView.setBackgroundColor(
+                message.isSelected ?
+                        Color.parseColor("#5532CD32")
+                        : Color.TRANSPARENT
+        );
+
+        holder.itemView.setOnLongClickListener(v -> {
+
+            message.isSelected = !message.isSelected;
+
+            notifyItemChanged(position);
+
+            List<String> selectedMessages = new ArrayList<>();
+
+            for(ChatMessage chat : chatMessages){
+
+                if(chat.isSelected){
+                    selectedMessages.add(chat.message);
+                }
+            }
+
+            listener.onMessagesSelected(selectedMessages);
+
+            return true;
+        });
     }
 
     @Override
@@ -66,6 +123,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder>{
 
     @Override
     public int getItemViewType(int position) {
+
         if(chatMessages.get(position).senderId.equals(senderId)){
             return VIEW_TYPE_SENT;
         }else{
@@ -74,29 +132,47 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder>{
     }
 
     static class SentMessageViewHolder extends RecyclerView.ViewHolder{
+
         private final ItemContainerSentMessageBinding binding;
 
-        SentMessageViewHolder(ItemContainerSentMessageBinding itemContainerSentMessageBinding){
+        SentMessageViewHolder(
+                ItemContainerSentMessageBinding itemContainerSentMessageBinding
+        ){
             super(itemContainerSentMessageBinding.getRoot());
             binding = itemContainerSentMessageBinding;
         }
+
         void setData(ChatMessage chatMessage){
+
             binding.textMessage.setText(chatMessage.message);
             binding.textDateTime.setText(chatMessage.dateTime);
         }
     }
 
     static class ReceivedMessageViewHolder extends RecyclerView.ViewHolder{
+
         private final ItemContainerReceivedMessageBinding binding;
-        ReceivedMessageViewHolder(ItemContainerReceivedMessageBinding itemContainerReceivedMessageBinding){
+
+        ReceivedMessageViewHolder(
+                ItemContainerReceivedMessageBinding itemContainerReceivedMessageBinding
+        ){
             super(itemContainerReceivedMessageBinding.getRoot());
             binding = itemContainerReceivedMessageBinding;
         }
 
         void setData(ChatMessage chatMessage, Bitmap receiverProfileImage){
+
             binding.textMessage.setText(chatMessage.message);
+
             binding.textDateTime.setText(chatMessage.dateTime);
+
             binding.imageProfile.setImageBitmap(receiverProfileImage);
+
+            if(chatMessage.isSuspicious){
+                binding.textWarning.setVisibility(View.VISIBLE);
+            }else{
+                binding.textWarning.setVisibility(View.GONE);
+            }
         }
     }
 }
