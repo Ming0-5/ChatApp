@@ -14,6 +14,8 @@ import com.example.chatapp.adapters.ChatAdapter;
 import com.example.chatapp.databinding.ActivityChatBinding;
 import com.example.chatapp.models.ChatMessage;
 import com.example.chatapp.models.User;
+import com.example.chatapp.network.ApiClient;
+import com.example.chatapp.network.ApiService;
 import com.example.chatapp.utilities.Constants;
 import com.example.chatapp.utilities.PreferenceManager;
 import com.google.android.gms.tasks.OnCompleteListener;
@@ -90,8 +92,13 @@ public class ChatActivity extends BaseActivity
 
     }
     private Bitmap getBitmapFromEncodedString(String encodedImage){
-        byte[] bytes = Base64.decode(encodedImage, Base64.DEFAULT);
-        return BitmapFactory.decodeByteArray(bytes, 0, bytes.length);
+        if(encodedImage != null){
+            byte[] bytes = Base64.decode(encodedImage, Base64.DEFAULT);
+            return BitmapFactory.decodeByteArray(bytes, 0, bytes.length);
+        }else{
+            return null;
+        }
+
     }
 
     private void sendMessage(){
@@ -218,6 +225,43 @@ public class ChatActivity extends BaseActivity
 
         binding.inputMessage.setText(null);
     }
+
+    private void showToast(String message){
+        Toast.makeText(getApplicationContext(), message, Toast.LENGTH_SHORT).show();
+
+    }
+
+    private void sendNotification(String messageBody){
+        ApiClient.getClient().create(ApiService.class).sendMessage(
+                Constants.getRemoteMsgHeaders(),
+                messageBody
+        ).enqueue(new Callback<String>() {
+            @Override
+            public void onResponse(@NonNull Call<String> call,@NonNull Response<String> response) {
+                if(response.isSuccessful()){
+                    try{
+                        if(response.body() != null){
+                            JSONObject responseJson = new JSONObject(response.body());
+                            if (responseJson.has("name")) {
+                                showToast("Notification sent successfully");
+                            } else if (responseJson.has("error")) {
+                                showToast("Error: " + responseJson.getJSONObject("error").getString("message"));
+                            }
+                        }
+                    }catch(JSONException e){
+                        e.printStackTrace();
+                    }
+                }else{
+                    showToast("Error "+ response.code());
+                }
+            }
+
+            @Override
+            public void onFailure(@NonNull Call<String> call,@NonNull Throwable t) {
+                showToast(t.getMessage());
+            }
+        });
+    }
     private void listenAvailabilityOfReceiver(){
         database.collection(Constants.KEY_COLLECTION_USERS).document(
                 receiverUser.id
@@ -232,12 +276,19 @@ public class ChatActivity extends BaseActivity
                     ).intValue();
                     isReceiverAvailable = availability == 1;
                 }
+                receiverUser.token = value.getString(Constants.KEY_FCM_TOKEN);
+                if(receiverUser.image == null){
+                    receiverUser.image = value.getString(Constants.KEY_IMAGE);
+                    chatAdapter.setReceiverProfileImage(getBitmapFromEncodedString(receiverUser.image));
+                    chatAdapter.notifyItemRangeChanged(0, chatMessages.size());
+                }
             }
             if(isReceiverAvailable){
                 binding.textAvailability.setVisibility(View.VISIBLE);
             }else{
                 binding.textAvailability.setVisibility(View.GONE);
             }
+
         });
 
     }
