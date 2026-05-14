@@ -19,7 +19,7 @@ import java.util.List;
 public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder>{
 
     private final List<ChatMessage> chatMessages;
-    private final Bitmap receiverProfileImage;
+    private Bitmap receiverProfileImage;
     private final String senderId;
     private final OnMessageSelectedListener listener;
 
@@ -40,6 +40,10 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder>{
         this.receiverProfileImage = receiverProfileImage;
         this.senderId = senderId;
         this.listener = listener;
+    }
+
+    public void setReceiverProfileImage(Bitmap bitmap){
+        receiverProfileImage = bitmap;
     }
 
     @NonNull

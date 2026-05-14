@@ -7,7 +7,14 @@ import android.graphics.BitmapFactory;
 import android.os.Bundle;
 import android.util.Base64;
 import android.view.View;
+import android.widget.Toast;
 import androidx.appcompat.app.AlertDialog;
+import androidx.annotation.NonNull;
+import org.json.JSONException;
+import org.json.JSONObject;
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
 import java.util.Arrays;
 
 import com.example.chatapp.adapters.ChatAdapter;
@@ -482,13 +489,5 @@ public class ChatActivity extends BaseActivity
         selectedMessages.addAll(messages);
 
         showToast(selectedMessages.size() + " messages selected");
-    }
-
-    private void showToast(String message){
-        android.widget.Toast.makeText(
-                this,
-                message,
-                android.widget.Toast.LENGTH_SHORT
-        ).show();
     }
 }
